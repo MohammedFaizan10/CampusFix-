@@ -40,6 +40,7 @@ export default function StudentReport() {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [createdId, setCreatedId] = useState(null);
+  const [aiAnalysis, setAiAnalysis] = useState(null);
 
   // Warn on leaving with unsaved inputs
   useEffect(() => {
@@ -100,6 +101,18 @@ export default function StudentReport() {
     setStep((prev) => prev - 1);
   }
 
+  function handleApplyAiRecommendations(rec) {
+    if (!rec) return;
+    setForm((prev) => ({
+      ...prev,
+      ...(rec.category ? { category: rec.category } : {}),
+      ...(rec.priority ? { priority: rec.priority } : {}),
+    }));
+    toast.success(
+      `AI Recommendation Applied: Category updated to ${rec.category}, Priority set to ${rec.priority}`
+    );
+  }
+
   async function handleSubmit() {
     if (!validateStep(1) || !validateStep(2)) {
       setStep(1);
@@ -107,10 +120,39 @@ export default function StudentReport() {
     }
     setSubmitting(true);
     try {
+      // Upload evidence files to InsForge Storage bucket to get permanent URLs
+      const uploadedEvidence = [];
+      for (const item of evidence) {
+        if (item.file) {
+          const uploaded = await complaintService.uploadEvidenceFile(item.file);
+          if (uploaded) {
+            uploadedEvidence.push(uploaded);
+          } else if (item.url && !item.url.startsWith('blob:')) {
+            uploadedEvidence.push({ name: item.name, url: item.url });
+          }
+        } else if (item.url && !item.url.startsWith('blob:')) {
+          uploadedEvidence.push({ name: item.name, url: item.url, key: item.key });
+        }
+      }
+
       const payload = {
         ...form,
         reportedBy: user.id,
-        evidence: evidence.map((e) => ({ name: e.name, url: e.url })),
+        reportedByName: user.name,
+        reportedByEmail: user.email,
+        evidence: uploadedEvidence,
+        aiAnalysis: aiAnalysis
+          ? {
+              category: aiAnalysis.suggested_category,
+              priority: aiAnalysis.suggested_priority,
+              confidence: aiAnalysis.confidence,
+              summary: aiAnalysis.summary,
+              latencyMs: aiAnalysis.processing_time_ms,
+              crackDetected: aiAnalysis.damage_analysis?.crack_candidate?.detected || false,
+              seepageDetected: aiAnalysis.damage_analysis?.water_seepage_candidate?.detected || false,
+              qualityStatus: aiAnalysis.image_quality?.quality_status || 'UNKNOWN',
+            }
+          : null,
       };
       const result = await complaintService.createComplaint(payload);
       toast.success(`Complaint logged successfully as ${result.id}!`);
@@ -125,6 +167,7 @@ export default function StudentReport() {
   function handleReset() {
     setForm(INITIAL_FORM);
     setEvidence([]);
+    setAiAnalysis(null);
     setStep(1);
     setCreatedId(null);
     setErrors({});
@@ -186,9 +229,21 @@ export default function StudentReport() {
               onAddImages={handleAddImages}
               onRemoveImage={handleRemoveImage}
               error={errors.evidence}
+              currentCategory={form.category}
+              currentPriority={form.priority}
+              onApplyRecommendations={handleApplyAiRecommendations}
+              aiAnalysis={aiAnalysis}
+              setAiAnalysis={setAiAnalysis}
             />
           )}
-          {step === 4 && <Step4Review form={form} evidence={evidence} onGoToStep={(s) => setStep(s)} />}
+          {step === 4 && (
+            <Step4Review
+              form={form}
+              evidence={evidence}
+              aiAnalysis={aiAnalysis}
+              onGoToStep={(s) => setStep(s)}
+            />
+          )}
 
           {/* Navigation Controls */}
           <div className="mt-8 flex items-center justify-between border-t border-slate-100 pt-4">

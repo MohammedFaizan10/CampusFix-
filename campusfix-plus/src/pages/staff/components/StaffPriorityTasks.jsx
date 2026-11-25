@@ -10,6 +10,7 @@ import StatusBadge from '../../../components/ui/StatusBadge';
 import { STATUSES } from '../../../constants/statuses';
 import { PRIORITIES } from '../../../constants/priorities';
 import { isComplaintOverdue, getRemainingHours } from '../../../utils/sla';
+import ImageThumbnailWithLightbox from '../../../components/ui/ImageThumbnailWithLightbox';
 
 const PRIORITY_WEIGHTS = {
   [PRIORITIES.CRITICAL]: 4,
@@ -85,7 +86,17 @@ export default function StaffPriorityTasks({ tasks = [] }) {
                       </span>
                     )}
                   </div>
-                  <h4 className="text-sm font-semibold text-slate-900 line-clamp-1">{task.title}</h4>
+                  <div className="flex items-center gap-2">
+                    {task.evidence && task.evidence.length > 0 && (
+                      <ImageThumbnailWithLightbox
+                        src={task.evidence[0]?.url || task.evidence[0]?.key}
+                        alt={task.evidence[0]?.name || task.title}
+                        className="w-8 h-8 rounded-lg"
+                        containerClassName="rounded-lg shrink-0"
+                      />
+                    )}
+                    <h4 className="text-sm font-semibold text-slate-900 line-clamp-1">{task.title}</h4>
+                  </div>
                   <div className="text-xs text-slate-500 flex items-center gap-1">
                     <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <span className="truncate">

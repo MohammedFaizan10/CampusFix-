@@ -17,8 +17,11 @@ import ModulePage from '../pages/modules/ModulePage';
 import Research from '../pages/public/Research';
 import Login from '../pages/public/Login';
 import Register from '../pages/public/Register';
+import StaffRegister from '../pages/public/StaffRegister';
 import ForgotPassword from '../pages/public/ForgotPassword';
 import ResetPassword from '../pages/public/ResetPassword';
+import AcceptInvite from '../pages/public/AcceptInvite';
+import OAuthCallback from '../pages/public/OAuthCallback';
 import AccessDenied from '../pages/public/AccessDenied';
 import NotFound from '../pages/public/NotFound';
 import DesignSystem from '../pages/system/DesignSystem';
@@ -26,6 +29,7 @@ import DesignSystem from '../pages/system/DesignSystem';
 // Student Portal Pages
 import StudentDashboard from '../pages/student/StudentDashboard';
 import StudentReport from '../pages/student/StudentReport';
+import StudentAiReport from '../pages/student/StudentAiReport';
 import StudentComplaints from '../pages/student/StudentComplaints';
 import StudentComplaintDetail from '../pages/student/StudentComplaintDetail';
 import StudentNotificationsPlaceholder from '../pages/student/StudentNotificationsPlaceholder';
@@ -55,6 +59,10 @@ import StaffProfilePlaceholder from '../pages/staff/StaffProfilePlaceholder';
 export default function AppRoutes() {
   return (
     <Routes>
+      {/* Standalone Auth Routes */}
+      <Route path="/auth/callback" element={<OAuthCallback />} />
+      <Route path="/invite/:token" element={<AcceptInvite />} />
+
       {/* Public Pages with PublicLayout */}
       <Route element={<PublicLayout />}>
         <Route path="/" element={<Home />} />
@@ -68,6 +76,7 @@ export default function AppRoutes() {
         <Route path="/about" element={<About />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/register/staff" element={<StaffRegister />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/access-denied" element={<AccessDenied />} />
@@ -79,6 +88,7 @@ export default function AppRoutes() {
           <Route index element={<Navigate to="/student/dashboard" replace />} />
           <Route path="dashboard" element={<StudentDashboard />} />
           <Route path="report" element={<StudentReport />} />
+          <Route path="report-ai" element={<StudentAiReport />} />
           <Route path="complaints" element={<StudentComplaints />} />
           <Route path="complaints/:id" element={<StudentComplaintDetail />} />
           <Route path="notifications" element={<StudentNotificationsPlaceholder />} />

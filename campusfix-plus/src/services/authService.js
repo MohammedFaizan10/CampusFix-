@@ -1,124 +1,240 @@
 /**
- * authService.js — Authentication Service Adapter (Prototype).
+ * authService.js — Real InsForge Authentication Service.
  *
- * REST API Contract for Chunk 11:
- * - POST /api/v1/auth/login     -> { user: UserDTO }
- * - POST /api/v1/auth/register  -> { user: UserDTO }
- * - POST /api/v1/auth/logout    -> 204 No Content
- * - GET  /api/v1/auth/me        -> { user: UserDTO }
- *
- * SECURITY NOTE:
- * Chunk 11 will use HttpOnly session cookies or in-memory JWT tokens.
- * NEVER write passwords, tokens, or private secrets to localStorage or sessionStorage.
- * In this prototype, only a non-sensitive user ID session marker is kept in
- * sessionStorage so that browser refreshes continue to recognize the active session.
+ * Interacts with InsForge Backend (PostgreSQL + auth.users + public.user_profiles).
  */
-import { MOCK_USERS, getUserByEmail, getUserById } from '../data/mockUsers';
+import insforge from '../lib/insforge';
 import { ROLES } from '../constants/roles';
 
-const delay = (ms = 400) => new Promise((resolve) => setTimeout(resolve, ms));
+function formatUserFromProfile(authUser, profile) {
+  const name = profile?.name || authUser?.name || authUser?.email?.split('@')[0] || 'User';
+  const initials = profile?.avatar_initials || name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('') || 'CF';
 
-const SESSION_KEY = 'campusfix_session_uid';
-
-// In-memory active user reference
-let _currentUser = null;
-
-// Client-side rate-limiting tracker for demo protection
-let _failedAttempts = 0;
-let _lockoutUntil = 0;
-
-/**
- * Checks client-side rate limit.
- * @throws {Error} if temporarily locked out.
- */
-function checkRateLimit() {
-  const now = Date.now();
-  if (_lockoutUntil > now) {
-    const remainingSeconds = Math.ceil((_lockoutUntil - now) / 1000);
-    throw new Error(
-      `[Client-Side Rate Limit]: Too many failed login attempts. Please wait ${remainingSeconds}s before retrying.`
-    );
-  }
+  return {
+    id: authUser.id,
+    name: name,
+    email: authUser.email,
+    role: profile?.role || ROLES.STUDENT,
+    department: profile?.department || null,
+    rollNumber: profile?.roll_number || null,
+    employeeId: profile?.employee_id || null,
+    designation: profile?.designation || null,
+    program: profile?.program || null,
+    academicYear: profile?.academic_year || null,
+    section: profile?.section || null,
+    semester: profile?.semester || null,
+    phone: profile?.phone || null,
+    avatarInitials: initials,
+    avatarColor: profile?.avatar_color || 'bg-indigo-600',
+    isActive: profile?.is_active ?? true,
+    joinedAt: profile?.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+  };
 }
 
 /**
- * Authenticate with email and password.
- * Prototype rule: Any password with >= 6 chars is accepted for valid demo emails.
- *
- * @param {object} credentials
- * @param {string} credentials.email
- * @param {string} credentials.password
- * @returns {Promise<object>} non-sensitive user profile
+ * Initiate Google OAuth using InsForge Auth PKCE flow.
+ */
+export async function signInWithGoogle() {
+  const { data, error } = await insforge.auth.signInWithOAuth('google', {
+    redirectTo: `${window.location.origin}/auth/callback`,
+    additionalParams: { prompt: 'select_account' }
+  });
+  if (error) {
+    throw new Error(error.message || 'Failed to start Google sign in.');
+  }
+  return data;
+}
+
+/**
+ * Completes a student profile for a newly authenticated Google user.
+ * Strictly assigns the STUDENT role (never ADMIN or STAFF).
+ */
+export async function completeGoogleStudentProfile(payload) {
+  const { data: authData, error: authError } = await insforge.auth.getCurrentUser();
+  if (authError || !authData?.user) {
+    throw new Error('No authenticated Google session found. Please sign in again.');
+  }
+
+  const user = authData.user;
+  const rollNumber = (payload.rollNumber || '').trim().toUpperCase();
+  if (!rollNumber) {
+    throw new Error('Student ID / Roll number is mandatory.');
+  }
+
+  // Ensure roll number is unique
+  const { data: existingRoll } = await insforge.database
+    .from('user_profiles')
+    .select('id')
+    .eq('roll_number', rollNumber)
+    .maybeSingle();
+
+  if (existingRoll && existingRoll.id !== user.id) {
+    throw new Error(`Student ID '${rollNumber}' is already registered to another account.`);
+  }
+
+  // Check if profile exists to prevent duplicate insertion
+  const { data: existingProfile } = await insforge.database
+    .from('user_profiles')
+    .select('id')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  const name = (payload.name || user.name || user.email.split('@')[0]).trim();
+  const initials = name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('') || 'ST';
+
+  const profileData = {
+    id: user.id,
+    email: user.email,
+    name: name,
+    role: ROLES.STUDENT, // Strictly enforced: NEVER ADMIN, SUPER_ADMIN, or STAFF
+    roll_number: rollNumber,
+    department: payload.department || 'Computer Science Engineering',
+    program: payload.program || 'Bachelor of Technology',
+    academic_year: payload.academicYear || '2025-2026',
+    section: payload.section || 'A',
+    phone: payload.phone || null,
+    avatar_initials: initials,
+    avatar_color: 'bg-indigo-600',
+    is_active: true,
+  };
+
+  if (existingProfile) {
+    const { error: updateErr } = await insforge.database
+      .from('user_profiles')
+      .update(profileData)
+      .eq('id', user.id);
+    if (updateErr) throw new Error(updateErr.message);
+  } else {
+    const { error: insertErr } = await insforge.database
+      .from('user_profiles')
+      .insert([profileData]);
+    if (insertErr) throw new Error(insertErr.message);
+  }
+
+  return formatUserFromProfile(user, profileData);
+}
+
+/**
+ * Authenticate with email and password via InsForge.
  */
 export async function login({ email, password }) {
-  await delay(500);
-  checkRateLimit();
-
   if (!email || !password) {
     throw new Error('Please enter both your institutional email and password.');
   }
 
   const normalizedEmail = email.trim().toLowerCase();
-  const user = getUserByEmail(normalizedEmail);
+  const { data, error } = await insforge.auth.signInWithPassword({
+    email: normalizedEmail,
+    password,
+  });
 
-  if (!user) {
-    _failedAttempts += 1;
-    if (_failedAttempts >= 5) {
-      _lockoutUntil = Date.now() + 30000; // 30s lockout
-      _failedAttempts = 0;
-      throw new Error(
-        '[Client-Side Rate Limit]: 5 failed attempts detected. Authentication temporarily locked for 30s.'
-      );
-    }
-    throw new Error('Invalid credentials. No campus account matches this email.');
+  if (error) {
+    throw new Error(error.message || 'Invalid credentials.');
   }
 
-  // Password validation: must be at least 6 characters in prototype
-  if (password.length < 6) {
-    _failedAttempts += 1;
-    throw new Error('Password must be at least 6 characters long.');
+  const authUser = data.user;
+  const { data: profile } = await insforge.database
+    .from('user_profiles')
+    .select('*')
+    .eq('id', authUser.id)
+    .maybeSingle();
+
+  return formatUserFromProfile(authUser, profile);
+}
+
+/**
+ * Staff / Admin self-registration with organization code verification.
+ * The code is validated server-side by the Edge Function.
+ */
+export async function staffRegister(payload) {
+  const {
+    name,
+    email,
+    employeeId,
+    phone,
+    department,
+    designation,
+    role,
+    password,
+    adminCode,
+  } = payload;
+
+  if (!name || !email || !password || !employeeId || !adminCode) {
+    throw new Error('All required fields must be completed.');
   }
 
-  // Successful authentication: reset rate limiter
-  _failedAttempts = 0;
-  _lockoutUntil = 0;
+  const normalizedEmail = email.trim().toLowerCase();
 
-  // Sanitize non-sensitive user object for memory
-  const safeUser = {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    department: user.department || user.assignedDepartment,
-    rollNumber: user.rollNumber || null,
-    employeeId: user.employeeId || null,
-    designation: user.designation || null,
-    avatarInitials: user.avatarInitials,
-    avatarColor: user.avatarColor,
-  };
-
-  _currentUser = safeUser;
-
-  // Store ONLY non-sensitive user ID marker in sessionStorage for refresh persistence
-  try {
-    sessionStorage.setItem(SESSION_KEY, safeUser.id);
-  } catch {
-    // Graceful fallback if storage is disabled in private browsing
+  if (!/\S+@\S+\.\S+/.test(normalizedEmail)) {
+    throw new Error('Please enter a valid institutional email address.');
   }
 
-  return safeUser;
+  // Check if employee ID is unique
+  const { data: existingEmp } = await insforge.database
+    .from('user_profiles')
+    .select('id')
+    .eq('employee_id', employeeId.trim().toUpperCase())
+    .maybeSingle();
+
+  if (existingEmp) {
+    throw new Error(`Employee ID '${employeeId.trim().toUpperCase()}' is already registered.`);
+  }
+
+  // Validate the organization/admin code via Edge Function
+  const { data: codeResult, error: codeError } = await insforge.functions.invoke('provision-user', {
+    body: {
+      action: 'validate_staff_registration',
+      email: normalizedEmail,
+      password,
+      name: name.trim(),
+      role: role || ROLES.STAFF,
+      department: department || null,
+      designation: designation || 'Maintenance Specialist',
+      employee_id: employeeId.trim().toUpperCase(),
+      phone: phone || null,
+      admin_code: adminCode.trim(),
+    },
+  });
+
+  if (codeError || codeResult?.error) {
+    const msg = codeResult?.error || codeError?.message || 'Registration failed.';
+    throw new Error(msg);
+  }
+
+  // If the edge function created the user, sign them in
+  const { data: signInData, error: signInError } = await insforge.auth.signInWithPassword({
+    email: normalizedEmail,
+    password,
+  });
+
+  if (signInError) {
+    throw new Error(signInError.message || 'Account created but auto-login failed. Please log in manually.');
+  }
+
+  const authUser = signInData.user;
+  const { data: profile } = await insforge.database
+    .from('user_profiles')
+    .select('*')
+    .eq('id', authUser.id)
+    .maybeSingle();
+
+  return formatUserFromProfile(authUser, profile);
 }
 
 /**
  * Self-registration for students only.
- * Staff and Admin accounts are provisioned exclusively by Campus Estate Admin.
- *
- * @param {object} payload
- * @returns {Promise<object>} newly created non-sensitive user profile
  */
 export async function register(payload) {
-  await delay(600);
-
   const { name, email, rollNumber, department, password } = payload;
 
   if (!name || !email || !rollNumber || !department || !password) {
@@ -126,124 +242,141 @@ export async function register(payload) {
   }
 
   const normalizedEmail = email.trim().toLowerCase();
-  const existing = getUserByEmail(normalizedEmail);
-  if (existing) {
-    throw new Error('An account with this institutional email already exists.');
+
+  // Validate format
+  if (!/\S+@\S+\.\S+/.test(normalizedEmail)) {
+    throw new Error('Please enter a valid institutional email address.');
   }
 
-  // Create new student prototype entity
+  // Check unique student ID / roll number
+  const { data: existingRoll } = await insforge.database
+    .from('user_profiles')
+    .select('id')
+    .eq('roll_number', rollNumber.trim().toUpperCase())
+    .maybeSingle();
+
+  if (existingRoll) {
+    throw new Error(`Student ID '${rollNumber.trim().toUpperCase()}' is already registered.`);
+  }
+
+  // Sign up via InsForge Auth
+  const { data: signUpData, error: signUpError } = await insforge.auth.signUp({
+    email: normalizedEmail,
+    password,
+    name: name.trim(),
+  });
+
+  if (signUpError) {
+    throw new Error(signUpError.message || 'Registration failed.');
+  }
+
+  const authUser = signUpData.user;
   const initials = name
     .split(' ')
     .filter(Boolean)
     .slice(0, 2)
     .map((w) => w[0].toUpperCase())
-    .join('');
+    .join('') || 'ST';
 
-  const newStudent = {
-    id: `usr-${Date.now().toString(36)}`,
-    name: name.trim(),
+  const newProfile = {
+    id: authUser.id,
     email: normalizedEmail,
+    name: name.trim(),
     role: ROLES.STUDENT,
-    rollNumber: rollNumber.trim().toUpperCase(),
-    department,
-    avatarInitials: initials || 'ST',
-    avatarColor: 'bg-indigo-600',
-    joinedAt: new Date().toISOString().split('T')[0],
+    roll_number: rollNumber.trim().toUpperCase(),
+    department: department,
+    program: payload.program || 'Bachelor of Technology',
+    academic_year: payload.academicYear || '2025-2026',
+    section: payload.section || 'A',
+    phone: payload.phone || null,
+    avatar_initials: initials,
+    avatar_color: 'bg-indigo-600',
+    is_active: true,
   };
 
-  // Add to in-memory mock set
-  MOCK_USERS.push(newStudent);
+  const { error: profileError } = await insforge.database
+    .from('user_profiles')
+    .insert([newProfile]);
 
-  _currentUser = newStudent;
-  try {
-    sessionStorage.setItem(SESSION_KEY, newStudent.id);
-  } catch {
-    // Ignore storage issues
+  if (profileError) {
+    console.error('Failed to create profile record:', profileError);
   }
 
-  return newStudent;
+  return formatUserFromProfile(authUser, newProfile);
 }
 
 /**
- * Terminate active session.
- * @returns {Promise<void>}
+ * Terminate active session via InsForge.
  */
 export async function logout() {
-  await delay(200);
-  _currentUser = null;
-  try {
-    sessionStorage.removeItem(SESSION_KEY);
-  } catch {
-    // Ignore
-  }
+  await insforge.auth.signOut();
 }
 
 /**
- * Bootstrap session from non-sensitive sessionStorage marker.
- * @returns {Promise<object|null>}
+ * Bootstrap session from InsForge currentUser.
  */
 export async function getMe() {
-  await delay(150);
-
-  if (_currentUser) {
-    return _currentUser;
-  }
-
   try {
-    const savedUserId = sessionStorage.getItem(SESSION_KEY);
-    if (savedUserId) {
-      const user = getUserById(savedUserId);
-      if (user) {
-        _currentUser = {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          department: user.department || user.assignedDepartment,
-          rollNumber: user.rollNumber || null,
-          employeeId: user.employeeId || null,
-          designation: user.designation || null,
-          avatarInitials: user.avatarInitials,
-          avatarColor: user.avatarColor,
-        };
-        return _currentUser;
-      }
+    const { data, error } = await insforge.auth.getCurrentUser();
+    if (error || !data?.user) {
+      return null;
     }
-  } catch {
-    // Fallback if sessionStorage is not accessible
-  }
 
-  return null;
+    const authUser = data.user;
+    const { data: profile } = await insforge.database
+      .from('user_profiles')
+      .select('*')
+      .eq('id', authUser.id)
+      .maybeSingle();
+
+    return formatUserFromProfile(authUser, profile);
+  } catch (err) {
+    console.warn('InsForge getMe session verification error:', err);
+    return null;
+  }
 }
 
 /**
- * Simulated password reset request (no actual email sent in prototype).
- * @param {string} email
- * @returns {Promise<{message: string}>}
+ * Password reset request.
  */
 export async function requestPasswordReset(email) {
-  await delay(500);
   if (!email) {
     throw new Error('Please enter your institutional email address.');
   }
+
+  const { error } = await insforge.auth.sendResetPasswordEmail({
+    email: email.trim().toLowerCase(),
+    redirectTo: `${window.location.origin}/reset-password`,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
   return {
-    message: `[Prototype Simulation]: A simulated password recovery token has been generated for ${email}. No real email was dispatched.`,
+    message: `Password reset instructions dispatched to ${email}.`,
   };
 }
 
 /**
- * Simulated password reset completion.
- * @param {string} token
- * @param {string} newPassword
- * @returns {Promise<{success: boolean}>}
+ * Reset password completion.
  */
 export async function resetPassword(token, newPassword) {
-  await delay(500);
   if (!token || !newPassword) {
     throw new Error('Invalid token or missing new password.');
   }
   if (newPassword.length < 6) {
     throw new Error('Password must be at least 6 characters long.');
   }
+
+  const { error } = await insforge.auth.resetPassword({
+    newPassword,
+    otp: token,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
   return { success: true };
 }

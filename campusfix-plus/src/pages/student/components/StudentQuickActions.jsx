@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { PlusCircle, ClipboardList, CheckCircle, Bell, ArrowRight } from 'lucide-react';
+import { PlusCircle, ClipboardList, CheckCircle, Bell, Sparkles, ArrowRight } from 'lucide-react';
 
 const ACTIONS = [
   {
@@ -9,6 +9,13 @@ const ACTIONS = [
     href: '/student/report',
     icon: PlusCircle,
     color: 'bg-primary-50 text-primary-700 border-primary-200',
+  },
+  {
+    title: 'Report an Issue with AI',
+    description: 'Take a photo or upload an image. Computer Vision detects damage & drafts ticket.',
+    href: '/student/report-ai',
+    icon: Sparkles,
+    color: 'bg-red-50 text-red-700 border-red-200 ring-1 ring-red-100',
   },
   {
     title: 'View My Complaints',

@@ -10,7 +10,8 @@ import ErrorState from '../../../components/ui/ErrorState';
 import Button from '../../../components/ui/Button';
 import ComplaintsFilterBar from './ComplaintsFilterBar';
 import ComplaintDetailsModal from './ComplaintDetailsModal';
-import { PlusCircle, Eye } from 'lucide-react';
+import { PlusCircle, Eye, Image as ImageIcon } from 'lucide-react';
+import ImageThumbnailWithLightbox from '../../../components/ui/ImageThumbnailWithLightbox';
 
 function formatRelative(dateStr) {
   if (!dateStr) return '';
@@ -133,8 +134,20 @@ export default function ComplaintsTable({ userId, pageSize = 8 }) {
                     >
                       <td className="p-3.5 font-mono font-bold text-primary-700">{c.id}</td>
                       <td className="p-3.5 max-w-xs">
-                        <p className="font-bold text-slate-900 truncate">{c.title}</p>
-                        <p className="text-[11px] text-slate-500 truncate">{c.description}</p>
+                        <div className="flex items-center gap-2.5">
+                          {c.evidence && c.evidence.length > 0 && (
+                            <ImageThumbnailWithLightbox
+                              src={c.evidence[0]?.url || c.evidence[0]?.key}
+                              alt={c.evidence[0]?.name || c.title}
+                              className="w-10 h-10 rounded-lg"
+                              containerClassName="rounded-lg shrink-0"
+                            />
+                          )}
+                          <div className="min-w-0">
+                            <p className="font-bold text-slate-900 truncate">{c.title}</p>
+                            <p className="text-[11px] text-slate-500 truncate">{c.description}</p>
+                          </div>
+                        </div>
                       </td>
                       <td className="p-3.5 font-medium text-slate-700">{c.category}</td>
                       <td className="p-3.5 text-slate-600 truncate max-w-[140px]">

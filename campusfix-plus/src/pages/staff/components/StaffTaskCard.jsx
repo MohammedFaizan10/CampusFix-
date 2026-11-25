@@ -8,6 +8,7 @@ import PriorityBadge from '../../../components/ui/PriorityBadge';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import Button from '../../../components/ui/Button';
 import { isComplaintOverdue, getRemainingHours } from '../../../utils/sla';
+import ImageThumbnailWithLightbox from '../../../components/ui/ImageThumbnailWithLightbox';
 
 export default function StaffTaskCard({ task }) {
   const overdue = isComplaintOverdue(task);
@@ -23,11 +24,21 @@ export default function StaffTaskCard({ task }) {
         </div>
       </div>
 
-      <div>
-        <h3 className="text-sm font-bold text-slate-900 leading-snug">{task.title}</h3>
-        <span className="text-[11px] font-semibold text-indigo-600 uppercase tracking-wider">
-          {task.category}
-        </span>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold text-slate-900 leading-snug">{task.title}</h3>
+          <span className="text-[11px] font-semibold text-indigo-600 uppercase tracking-wider">
+            {task.category}
+          </span>
+        </div>
+        {task.evidence && task.evidence.length > 0 && (
+          <ImageThumbnailWithLightbox
+            src={task.evidence[0]?.url || task.evidence[0]?.key}
+            alt={task.evidence[0]?.name || task.title}
+            className="w-12 h-12 rounded-lg"
+            containerClassName="rounded-lg shrink-0"
+          />
+        )}
       </div>
 
       <div className="space-y-1.5 text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100">

@@ -6,6 +6,7 @@ import StatusBadge from '../../../components/ui/StatusBadge';
 import PriorityBadge from '../../../components/ui/PriorityBadge';
 import Button from '../../../components/ui/Button';
 import { DEPARTMENT_META } from '../../../constants/departments';
+import ImageThumbnailWithLightbox from '../../../components/ui/ImageThumbnailWithLightbox';
 
 export default function AdminComplaintsTable({
   complaints = [],
@@ -89,9 +90,21 @@ export default function AdminComplaintsTable({
                       {c.id}
                     </td>
                     <td className="py-3 px-3">
-                      <div className="font-semibold text-slate-900 line-clamp-1">{c.title}</div>
-                      <div className="text-[11px] text-slate-500">
-                        {c.location?.buildingName || c.location?.building} • Room {c.location?.room || 'N/A'}
+                      <div className="flex items-center gap-2.5">
+                        {c.evidence && c.evidence.length > 0 && (
+                          <ImageThumbnailWithLightbox
+                            src={c.evidence[0]?.url || c.evidence[0]?.key}
+                            alt={c.evidence[0]?.name || c.title}
+                            className="w-9 h-9 rounded-lg"
+                            containerClassName="rounded-lg shrink-0"
+                          />
+                        )}
+                        <div className="min-w-0">
+                          <div className="font-semibold text-slate-900 line-clamp-1">{c.title}</div>
+                          <div className="text-[11px] text-slate-500">
+                            {c.location?.buildingName || c.location?.building} • Room {c.location?.room || 'N/A'}
+                          </div>
+                        </div>
                       </div>
                     </td>
                     <td className="py-3 px-3 whitespace-nowrap">

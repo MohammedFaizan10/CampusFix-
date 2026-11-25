@@ -1,0 +1,120 @@
+# ==============================================================================
+# CampusFix+ YOLOv8 Infrastructure Damage Model Training Configuration
+# ==============================================================================
+#
+# IMPORTANT NOTICE:
+# DO NOT RUN TRAINING UNTIL ACTUAL CAMPUS DATASETS HAVE BEEN COLLECTED,
+# ANNOTATED ACCORDING TO 'docs/ANNOTATION_GUIDE.md', AND VALIDATED WITH
+# 'dataset_tools/validator.py'.
+#
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Dataset & Model Selection
+# ------------------------------------------------------------------------------
+# Path to the dataset specification file
+data: datasets/campus_damage/data.yaml
+
+# Base pretrained weights for transfer learning:
+#   - yolov8n.pt : Fastest (3.2M params), CPU-friendly, low memory (~1GB VRAM)
+#   - yolov8s.pt : Better detection precision (11.2M params), requires GPU (4-6GB VRAM)
+#   - yolov8m.pt : High accuracy, recommended for production servers with dedicated GPU
+model: yolov8n.pt
+
+# Output project directory and run name
+project: runs/train
+name: campus_damage_yolov8n
+
+# ------------------------------------------------------------------------------
+# 2. Core Hyperparameters
+# ------------------------------------------------------------------------------
+# Number of training epochs (recommended: 80 - 150)
+epochs: 100
+
+# Input image resolution (must be multiple of 32; 640 is standard YOLO)
+imgsz: 640
+
+# Batch size:
+# - Use 16 or 32 for CUDA GPU (8GB+ VRAM)
+# - Use 4 or 8 for CPU or limited VRAM
+batch: 16
+
+# Device to run on:
+# - '0' or '0,1' for NVIDIA GPU / CUDA
+# - 'cpu' for standard CPU training
+# - 'mps' for Apple Silicon
+device: 0
+
+# Number of worker threads for data loading (0 on Windows CPU to prevent multiprocessing locks)
+workers: 4
+
+# Optimizer: 'auto', 'SGD', 'Adam', 'AdamW' (AdamW recommended for transfer learning)
+optimizer: AdamW
+
+# Initial learning rate
+lr0: 0.001
+
+# Final learning rate fraction (lrf * lr0 = final lr)
+lrf: 0.01
+
+# Momentum / Beta1 for Adam
+momentum: 0.937
+
+# Weight decay for regularization
+weight_decay: 0.0005
+
+# Warmup epochs to stabilize initial gradients
+warmup_epochs: 3.0
+warmup_momentum: 0.8
+warmup_bias_lr: 0.1
+
+# Early stopping patience (stop training if mAP50-95 does not improve for 20 epochs)
+patience: 20
+
+# ------------------------------------------------------------------------------
+# 3. Data Augmentation Strategies (Tailored for Structural Damage)
+# ------------------------------------------------------------------------------
+# Color space augmentations to handle campus indoor lighting variations
+hsv_h: 0.015       # Image HSV-Hue augmentation (fraction)
+hsv_s: 0.7         # Image HSV-Saturation augmentation (fraction)
+hsv_v: 0.4         # Image HSV-Value/Brightness augmentation (fraction)
+
+# Geometric augmentations
+degrees: 10.0      # Image rotation (+/- deg)
+translate: 0.1     # Image translation (+/- fraction)
+scale: 0.5         # Image scale (+/- gain)
+shear: 2.0         # Image shear (+/- deg)
+perspective: 0.0005 # Perspective distortion (simulates wide/telephoto mobile cameras)
+
+# Flips
+fliplr: 0.5        # Horizontal flip (50% probability)
+flipud: 0.1        # Vertical flip (low probability, as cracks/ceilings have vertical context)
+
+# Mosaic & MixUp
+# Mosaic combines 4 images into one, enhancing small crack and screw/wire detection
+mosaic: 1.0        # Mosaic probability
+mixup: 0.1         # Mixup probability (combining two images)
+copy_paste: 0.0    # Segment copy-paste (disabled for bounding-box detection)
+
+# ------------------------------------------------------------------------------
+# 4. Evaluation & Checkpoint Logging
+# ------------------------------------------------------------------------------
+save: true          # Save checkpoints
+save_period: 10     # Save checkpoint every 10 epochs
+plots: true         # Generate and save confusion matrices, precision-recall curves
+val: true           # Validate on validation set after each epoch
+
+# ------------------------------------------------------------------------------
+# 5. Execution Reference
+# ------------------------------------------------------------------------------
+# To trigger training via Python CLI after populating dataset:
+#
+#   yolo detect train cfg=configs/train_config.yaml
+#
+# Or via Python script:
+#
+#   from ultralytics import YOLO
+#   model = YOLO("yolov8n.pt")
+#   model.train(cfg="configs/train_config.yaml")
+#
+

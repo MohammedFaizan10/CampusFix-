@@ -2,6 +2,7 @@ import React from 'react';
 import Modal from '../../../components/ui/Modal';
 import StatusBadge from '../../../components/ui/StatusBadge';
 import PriorityBadge from '../../../components/ui/PriorityBadge';
+import ImageGalleryLightbox from './detail/ImageGalleryLightbox';
 import { MapPin, Clock, Calendar, MessageSquare, CheckCircle2 } from 'lucide-react';
 
 export default function ComplaintDetailsModal({ complaint, isOpen, onClose }) {
@@ -22,6 +23,13 @@ export default function ComplaintDetailsModal({ complaint, isOpen, onClose }) {
           <h2 className="mt-2 text-base font-bold text-slate-900">{complaint.title}</h2>
           <p className="mt-1 text-slate-600 leading-relaxed">{complaint.description}</p>
         </div>
+
+        {/* Photographic Evidence Gallery */}
+        {complaint.evidence && complaint.evidence.length > 0 && (
+          <div className="border-b border-slate-100 pb-4">
+            <ImageGalleryLightbox evidence={complaint.evidence} />
+          </div>
+        )}
 
         {/* Location & Metadata Grid */}
         <div className="grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3.5 sm:grid-cols-3">

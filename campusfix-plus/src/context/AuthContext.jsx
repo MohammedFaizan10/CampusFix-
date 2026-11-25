@@ -53,6 +53,16 @@ export function AuthProvider({ children }) {
   }
 
   /**
+   * Register a new staff or admin account (requires organization code).
+   * @param {object} payload
+   */
+  async function staffRegister(payload) {
+    const newUser = await authService.staffRegister(payload);
+    setUser(newUser);
+    return newUser;
+  }
+
+  /**
    * Terminate active user session.
    */
   async function logout() {
@@ -67,6 +77,7 @@ export function AuthProvider({ children }) {
     isLoading,
     login,
     register,
+    staffRegister,
     logout,
   };
 

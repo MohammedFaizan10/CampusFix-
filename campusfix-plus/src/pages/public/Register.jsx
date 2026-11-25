@@ -181,6 +181,12 @@ export default function Register() {
           <p className="mt-5 text-center text-xs text-slate-500">
             Already registered? <Link to="/login" className="font-semibold text-primary-600 hover:text-primary-700">Log in</Link>
           </p>
+          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-center gap-1.5 text-xs text-slate-500">
+            <span>Staff or Administrator?</span>
+            <Link to="/register/staff" className="font-semibold text-amber-600 hover:text-amber-700 underline">
+              Staff / Admin Registration
+            </Link>
+          </div>
         </Card>
       </div>
     </div>

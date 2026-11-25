@@ -13,6 +13,7 @@ import StaffTasksFilterBar from './components/StaffTasksFilterBar';
 import { getAllComplaintsRaw } from '../../services/complaintService';
 import { useAuth } from '../../context/AuthContext';
 import { isComplaintOverdue, getRemainingHours } from '../../utils/sla';
+import ImageThumbnailWithLightbox from '../../components/ui/ImageThumbnailWithLightbox';
 
 export default function StaffTasks() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -158,9 +159,21 @@ export default function StaffTasks() {
                   <tr key={t.id} className="hover:bg-slate-50/70">
                     <td className="py-3 px-4 font-mono font-medium text-indigo-600">{t.id}</td>
                     <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-900">{t.title}</div>
-                      <div className="text-[11px] text-slate-500">
-                        {t.location?.buildingName || t.location?.building} • Room {t.location?.room || 'N/A'}
+                      <div className="flex items-center gap-2.5">
+                        {t.evidence && t.evidence.length > 0 && (
+                          <ImageThumbnailWithLightbox
+                            src={t.evidence[0]?.url || t.evidence[0]?.key}
+                            alt={t.evidence[0]?.name || t.title}
+                            className="w-9 h-9 rounded-lg"
+                            containerClassName="rounded-lg shrink-0"
+                          />
+                        )}
+                        <div className="min-w-0">
+                          <div className="font-semibold text-slate-900">{t.title}</div>
+                          <div className="text-[11px] text-slate-500">
+                            {t.location?.buildingName || t.location?.building} • Room {t.location?.room || 'N/A'}
+                          </div>
+                        </div>
                       </div>
                     </td>
                     <td className="py-3 px-4 text-slate-600">{t.category}</td>

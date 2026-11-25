@@ -20,13 +20,25 @@ const SIZE_MAP = {
   xl: 'max-w-2xl',
 };
 
-export default function Modal({ open, onClose, title, description, size = 'md', children, footer }) {
+export default function Modal({
+  open,
+  isOpen,
+  onClose,
+  title,
+  description,
+  size = 'md',
+  maxWidth,
+  className,
+  children,
+  footer,
+}) {
+  const isVisible = open !== undefined ? open : isOpen;
   const overlayRef = useRef(null);
   const dialogRef = useRef(null);
 
   /* Trap focus inside the modal while open */
   useEffect(() => {
-    if (!open) return;
+    if (!isVisible) return;
 
     const el = dialogRef.current;
     const focusable = el?.querySelectorAll(
@@ -59,11 +71,11 @@ export default function Modal({ open, onClose, title, description, size = 'md', 
 
   /* Prevent body scroll while open */
   useEffect(() => {
-    document.body.style.overflow = open ? 'hidden' : '';
+    document.body.style.overflow = isVisible ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
-  }, [open]);
+  }, [isVisible]);
 
-  if (!open) return null;
+  if (!isVisible) return null;
 
   return (
     <div
@@ -76,7 +88,7 @@ export default function Modal({ open, onClose, title, description, size = 'md', 
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -86,7 +98,8 @@ export default function Modal({ open, onClose, title, description, size = 'md', 
         ref={dialogRef}
         className={[
           'relative w-full bg-white rounded-2xl shadow-soft-xl flex flex-col max-h-[90vh]',
-          SIZE_MAP[size] ?? SIZE_MAP.md,
+          maxWidth || SIZE_MAP[size] || SIZE_MAP.md,
+          className || '',
         ].join(' ')}
       >
         {/* Header */}

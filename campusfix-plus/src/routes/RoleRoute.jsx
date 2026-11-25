@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import Skeleton from '../components/ui/Skeleton';
+import { ROLES } from '../constants/roles';
 
 /**
  * RoleRoute — Enforces role-based authorization for protected views.
@@ -29,7 +30,17 @@ export default function RoleRoute({ allowedRoles = [] }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (!allowedRoles.includes(role)) {
+  const hasAccess = allowedRoles.some((allowed) => {
+    if (allowed === ROLES.ADMIN) {
+      return role === ROLES.ADMIN || role === 'SUPER_ADMIN';
+    }
+    if (allowed === ROLES.STAFF) {
+      return role === ROLES.STAFF || role === 'MAINTENANCE_STAFF' || role === 'DEPARTMENT_STAFF';
+    }
+    return role === allowed;
+  });
+
+  if (!hasAccess) {
     return <Navigate to="/access-denied" state={{ attemptedPath: location.pathname }} replace />;
   }
 

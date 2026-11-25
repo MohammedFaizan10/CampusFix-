@@ -10,7 +10,7 @@ const DEMO_ACCOUNTS = [
   {
     role: 'Admin',
     label: 'Admin (Dr. Vikram Anand)',
-    email: 'vikram.anand@admin.campusfix.edu',
+    email: 'admin@campusfix.edu',
     badge: 'bg-amber-50 text-amber-800 border-amber-200',
   },
   {

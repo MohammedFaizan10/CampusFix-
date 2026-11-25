@@ -9,6 +9,7 @@ import StatusBadge from '../../../components/ui/StatusBadge';
 import PriorityBadge from '../../../components/ui/PriorityBadge';
 import { STATUSES } from '../../../constants/statuses';
 import { isComplaintOverdue, getRemainingHours } from '../../../utils/sla';
+import ImageThumbnailWithLightbox from '../../../components/ui/ImageThumbnailWithLightbox';
 
 export default function AdminNeedsAction({ complaints = [] }) {
   // Sort prioritized: overdue items first, then unassigned SUBMITTED / REOPENED items
@@ -72,7 +73,17 @@ export default function AdminNeedsAction({ complaints = [] }) {
                       </span>
                     ) : null}
                   </div>
-                  <h4 className="text-sm font-medium text-slate-900">{c.title}</h4>
+                  <div className="flex items-center gap-2">
+                    {c.evidence && c.evidence.length > 0 && (
+                      <ImageThumbnailWithLightbox
+                        src={c.evidence[0]?.url || c.evidence[0]?.key}
+                        alt={c.evidence[0]?.name || c.title}
+                        className="w-9 h-9 rounded-lg"
+                        containerClassName="rounded-lg shrink-0"
+                      />
+                    )}
+                    <h4 className="text-sm font-medium text-slate-900">{c.title}</h4>
+                  </div>
                   <p className="text-xs text-slate-500">
                     {c.location?.buildingName || c.location?.building} • Room {c.location?.room || 'N/A'} • Reported {new Date(c.createdAt).toLocaleDateString()}
                   </p>

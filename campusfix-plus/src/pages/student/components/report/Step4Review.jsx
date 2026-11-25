@@ -1,9 +1,9 @@
 import React from 'react';
 import Card from '../../../../components/ui/Card';
 import PriorityBadge from '../../../../components/ui/PriorityBadge';
-import { Edit2, MapPin, FileText, Image as ImageIcon } from 'lucide-react';
+import { Edit2, MapPin, FileText, Image as ImageIcon, Sparkles } from 'lucide-react';
 
-export default function Step4Review({ form, evidence = [], onGoToStep }) {
+export default function Step4Review({ form, evidence = [], aiAnalysis, onGoToStep }) {
   return (
     <div className="space-y-4">
       {/* 1. Issue Summary */}
@@ -29,6 +29,16 @@ export default function Step4Review({ form, evidence = [], onGoToStep }) {
             <span className="font-semibold text-slate-900 ml-2">Urgency:</span>
             <PriorityBadge priority={form.priority} />
           </div>
+
+          {aiAnalysis && (
+            <div className="mt-2.5 flex items-center gap-2 rounded-lg bg-indigo-50 border border-indigo-100 p-2 text-[11px] text-indigo-900">
+              <Sparkles className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+              <span>
+                <strong>AI Vision Assisted:</strong> Triage recommendations evaluated with YOLOv8 & OpenCV (Confidence: {Math.round((aiAnalysis.confidence || 0) * 100)}%).
+              </span>
+            </div>
+          )}
+
           <p className="mt-2 text-slate-600 leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-100">
             {form.description}
           </p>

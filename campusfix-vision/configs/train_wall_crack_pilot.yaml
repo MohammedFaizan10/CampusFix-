@@ -1,0 +1,59 @@
+# ==============================================================================
+# CampusFix+ YOLOv8 Wall Crack Pilot Training Configuration (Single-Class)
+# ==============================================================================
+#
+# IMPORTANT NOTICE:
+# DO NOT RUN TRAINING UNTIL ACTUAL CAMPUS DATASETS HAVE BEEN COLLECTED,
+# ANNOTATED ACCORDING TO 'docs/ANNOTATION_GUIDE.md', AND VALIDATED WITH
+# 'dataset_tools/validator.py'.
+#
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Dataset & Model Selection
+# ------------------------------------------------------------------------------
+data: datasets/wall_crack_pilot/data.yaml
+model: yolov8n.pt
+project: runs/train
+name: wall_crack_pilot_yolov8n
+
+# ------------------------------------------------------------------------------
+# 2. Core Hyperparameters
+# ------------------------------------------------------------------------------
+epochs: 80
+imgsz: 640
+batch: 16
+device: 0
+workers: 4
+optimizer: AdamW
+lr0: 0.001
+lrf: 0.01
+momentum: 0.937
+weight_decay: 0.0005
+warmup_epochs: 3.0
+patience: 15
+
+# ------------------------------------------------------------------------------
+# 3. Data Augmentation Strategies (Crack Focused)
+# ------------------------------------------------------------------------------
+hsv_h: 0.015
+hsv_s: 0.7
+hsv_v: 0.4
+degrees: 15.0       # Crack orientation can be diagonal, horizontal, vertical
+translate: 0.1
+scale: 0.5
+shear: 2.0
+perspective: 0.0005
+fliplr: 0.5
+flipud: 0.5         # Cracks can appear in any spatial orientation
+mosaic: 1.0
+mixup: 0.1
+
+# ------------------------------------------------------------------------------
+# 4. Evaluation & Checkpoints
+# ------------------------------------------------------------------------------
+save: true
+save_period: 10
+plots: true
+val: true
+
